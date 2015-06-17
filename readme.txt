@@ -7,8 +7,6 @@ Stable tag: 1.0.0.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-
-
 Display list of all sent email logs of your wordpress site via wordpress function("wp_mail()") function only.
 
 == Description ==
@@ -43,5 +41,9 @@ With each mail detail, it will stored from & to user ids, form & to email addres
 
 == Changelog ==
 
-= 1.0.0.0 =
+= 1.0.0 =
 * Fresh Public Release.
+
+= 1.0.1 =
+* Buddypress functions created problems while buddypress plugin not installed - SOLVED.
+

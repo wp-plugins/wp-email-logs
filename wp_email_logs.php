@@ -3,7 +3,7 @@
 Plugin Name: WP Email Logs
 Plugin URI: http://aheadzen.com/
 Description: Display the list of all email logs send via wordpress site using wp_mail() function only
-Version: 1.0.0
+Version: 1.0.1
 Author: Aheadzen Team | <a href="admin.php?page=my_email_log" target="_blank">Email Logs</a>
 Author URI: http://aheadzen.com/
 License: GPL2

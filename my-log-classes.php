@@ -55,10 +55,7 @@ Class My_Log_Entry {
 			$this->content           = $row->content;
 			$this->date_recorded     = $row->date_recorded;
 			$this->hide_sitewide     = $row->hide_sitewide;
-			$this->mptt_left         = $row->mptt_left;
-			$this->mptt_right        = $row->mptt_right;
-			$this->from_email        = $row->from_email;
-			$this->to_email          = $row->to_email;
+			
 		}
 	}
 
@@ -77,6 +74,7 @@ Class My_Log_Entry {
 		}else{
 			$q = $wpdb->prepare( "INSERT INTO " . My_Log_Entry::LOG_TABLE . " ( user_id, component, type, action, content, primary_link, date_recorded, item_id, secondary_item_id, hide_sitewide,from_email,to_email ) VALUES ( %d, %s, %s, %s, %s, %s, %s, %s, %s, %d, %s, %s )", $this->user_id, $this->component, $this->type, $this->action, $this->content, $this->primary_link, $this->date_recorded, $this->item_id, $this->secondary_item_id, $this->hide_sitewide,$this->from_email,$this->to_email );
 		}
+		
 		if ( !$wpdb->query( $q ) )
 			return false;
 
@@ -162,7 +160,7 @@ Class My_Log_Entry {
 		$total_activities = $wpdb->get_var( $total_activities_sql );
 
 		// Get the fullnames of users so we don't have to query in the loop
-		if ( bp_is_active( 'xprofile' ) && $activities ) {
+		if (function_exists('bp_is_active') && bp_is_active( 'xprofile' ) && $activities ) {
 			foreach ( (array)$activities as $activity ) {
 				if ( (int)$activity->user_id )
 					$activity_user_ids[] = $activity->user_id;
@@ -375,7 +373,7 @@ Class My_Log_Entry {
 
 		if ( !$comments = wp_cache_get( 'my_log_comments_' . $activity_id ) ) {
 			// Select the user's fullname with the query
-			if ( bp_is_active( 'xprofile' ) ) {
+			if (function_exists('bp_is_active') && bp_is_active( 'xprofile' ) ) {
 				$fullname_select = ", pd.value as user_fullname";
 				$fullname_from = ", {$bp->profile->table_name_data} pd ";
 				$fullname_where = "AND pd.user_id = a.user_id AND pd.field_id = 1";
@@ -447,16 +445,19 @@ Class My_Log_Entry {
 
 	function get_sitewide_items_for_feed( $limit = 35 ) {
 		global $wpdb, $bp;
+		$activity_feed = array();
+		if(function_exists('bp_activity_get_sitewide')){
+			$activities = bp_activity_get_sitewide( array( 'max' => $limit ) );
+			if($activities){
+				for ( $i = 0, $count = count( $activities ); $i < $count; ++$i ) {
+						$title = explode( '<span', $activities[$i]['content'] );
 
-		$activities = bp_activity_get_sitewide( array( 'max' => $limit ) );
-
-		for ( $i = 0, $count = count( $activities ); $i < $count; ++$i ) {
-				$title = explode( '<span', $activities[$i]['content'] );
-
-				$activity_feed[$i]['title'] = trim( strip_tags( $title[0] ) );
-				$activity_feed[$i]['link'] = $activities[$i]['primary_link'];
-				$activity_feed[$i]['description'] = @sprintf( $activities[$i]['content'], '' );
-				$activity_feed[$i]['pubdate'] = $activities[$i]['date_recorded'];
+						$activity_feed[$i]['title'] = trim( strip_tags( $title[0] ) );
+						$activity_feed[$i]['link'] = $activities[$i]['primary_link'];
+						$activity_feed[$i]['description'] = @sprintf( $activities[$i]['content'], '' );
+						$activity_feed[$i]['pubdate'] = $activities[$i]['date_recorded'];
+				}
+			}
 		}
 
 		return $activity_feed;
@@ -557,7 +558,7 @@ Class My_Log_Entry {
 	}
 
 	function total_favorite_count( $user_id ) {
-		if ( !$favorite_activity_entries = bp_get_user_meta( $user_id, 'bp_favorite_activities', true ) )
+		if (function_exists('bp_get_user_meta') &&  !$favorite_activity_entries = bp_get_user_meta( $user_id, 'bp_favorite_activities', true ) )
 			return 0;
 
 		return count( maybe_unserialize( $favorite_activity_entries ) );
@@ -592,15 +593,21 @@ function my_log_add( $args = '' ) {
 		'user_id'           => $bp->loggedin_user->id, // Optional: The user to record the activity for, can be false if this activity is not for a user.
 		'item_id'           => false, // Optional: The ID of the specific item being recorded, e.g. a blog_id
 		'secondary_item_id' => false, // Optional: A second ID used to further filter e.g. a comment_id
-		'recorded_time'     => bp_core_current_time(), // The GMT time that this activity was recorded
+		//'recorded_time'     => bp_core_current_time(), // The GMT time that this activity was recorded
 		'hide_sitewide'     => false  // Should this be hidden on the sitewide activity stream?
 	);
+	if(function_exists('bp_core_current_time')){
+		$defaults['recorded_time'] = bp_core_current_time(); // The GMT time that this activity was recorded
+	}elseif(function_exists('current_time')){
+		$defaults['recorded_time'] = current_time( true, 'mysql' );
+	}
 	$params = wp_parse_args( $args, $defaults );
 	extract( $params, EXTR_SKIP );
-
+	
 	if ( empty( $type ) && !empty( $component_action ) )
 		$type = $component_action;
 
+		
 	// Setup activity to be added
 	$entry		              = new My_Log_Entry( $id );
 	$entry->user_id           = $user_id;
@@ -612,10 +619,6 @@ function my_log_add( $args = '' ) {
 	$entry->item_id           = $item_id;
 	$entry->secondary_item_id = $secondary_item_id;
 	$entry->date_recorded     = $recorded_time;
-	$entry->hide_sitewide     = $hide_sitewide;
-	$entry->from_email    	  = $from_email;
-	$entry->to_email     	  = $to_email;
-	
 	
 	if ( !$entry->save() )
 		return false;
@@ -691,10 +694,11 @@ class My_Log_Entry_Template {
 			}			
 		}
 
-		if ( empty( $user_id ) )
+		if ( empty( $user_id ) ){
 			$link = $item->primary_link;
-		else
+		}elseif(function_exists('bp_core_get_user_domain')){
 			$link = bp_core_get_user_domain( $user_id );
+		}
 
 		$defaults = array(
 			'alt'     => __( 'Profile picture of %s', 'buddypress' ),
@@ -710,9 +714,9 @@ class My_Log_Entry_Template {
 
 		$r = wp_parse_args( $defaults );
 		extract( $r, EXTR_SKIP );
-
-		$img = bp_core_fetch_avatar( array( 'item_id' => $item_id, 'object' => $object, 'type' => $type, 'alt' => $alt, 'class' => $class, 'width' => $width, 'height' => $height, 'email' => $email ) );
-
+		if(function_exists('bp_core_fetch_avatar')){
+			$img = bp_core_fetch_avatar( array( 'item_id' => $item_id, 'object' => $object, 'type' => $type, 'alt' => $alt, 'class' => $class, 'width' => $width, 'height' => $height, 'email' => $email ) );
+		}
 		$user_item = '<a href="' . $link . '">' . $img . '</a><a href="' . $link . '">' . $user_fullname .'<br />'. $user_email. '</a>';
 
 		return $user_item;

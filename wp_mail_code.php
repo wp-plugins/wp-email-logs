@@ -44,7 +44,7 @@ function aheadzen_wp_mail_filter( $args ) {
 	{
 		foreach($debug_trace as $key=>$val)
 		{
-			if($val['function']=='wp_mail')
+			if(strstr($val['function'],'wp_mail'))
 			{
 				$type = $function = $debug_trace[$key+1]['function'];
 				if(is_admin()){
